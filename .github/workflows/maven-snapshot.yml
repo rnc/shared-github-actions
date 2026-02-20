@@ -71,8 +71,7 @@ jobs:
     - name: Deploy Snapshot
       # Only run for snapshot version and not for commits with released versions
       if: endsWith(steps.project-version.outputs.version, '-SNAPSHOT')
-      run: ${{ inputs.snapshot_deploy_command }} \
-           ${{ inputs.quarkus_jib_image && '-Dquarkus.container-image.build=true' || '' }}
+      run: ${{ inputs.snapshot_deploy_command }} ${{ inputs.quarkus_jib_image && '-Dquarkus.container-image.build=true' || '' }}
       env:
         MAVEN_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
         MAVEN_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
