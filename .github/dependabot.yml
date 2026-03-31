@@ -9,3 +9,7 @@ updates:
     schedule:
       # Check for updates to GitHub Actions every week
       interval: "weekly"
+    # wait after a new release till we create a PR, to reduce risk of pulling
+    # a compromised new version
+    cooldown:
+      default-days: 7
