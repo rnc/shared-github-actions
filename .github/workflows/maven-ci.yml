@@ -53,7 +53,7 @@ jobs:
         cache: maven
 
     - name: Build Command invocation
-      run: '${INPUTS_BUILD_COMMAND}'
+      run: bash -c "${INPUTS_BUILD_COMMAND}"
       env:
         INPUTS_BUILD_COMMAND: ${{ inputs.build_command }}
 

@@ -88,7 +88,7 @@ jobs:
         gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
     - name: Publish to Central
-      run: ${INPUTS_RELEASE_COMMAND}
+      run: bash -c "${INPUTS_RELEASE_COMMAND}"
       env:
         MAVEN_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
         MAVEN_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
