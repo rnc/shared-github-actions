@@ -96,4 +96,12 @@ jobs:
         INPUTS_RELEASE_COMMAND: ${{ inputs.release_command }}
 
     - name: Push all the git commits and tags back to the repository
-      run: git push && git push --tags
+      run: |
+        # Construct the authenticated URL
+        # format: https://<token>@github.com/<owner>/<repo>.git
+        REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+
+        git push "${REMOTE}" && git push "${REMOTE}" --tags
+      env:
+        # Use the standard GITHUB_TOKEN or a Custom PAT if pushing to other repos
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

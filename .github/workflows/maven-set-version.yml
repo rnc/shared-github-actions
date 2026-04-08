@@ -75,8 +75,14 @@ jobs:
 
     - name: Push all the git commits and tags back to the repository
       run: |
+        # Construct the authenticated URL
+        # format: https://<token>@github.com/<owner>/<repo>.git
+        REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+
         git add -A
         git commit -m "chore: Bump version to: ${INPUTS_NEW_VERSION}"
-        git push
+        git push "${REMOTE}"
       env:
         INPUTS_NEW_VERSION: ${{ inputs.new_version }}
+        # Use the standard GITHUB_TOKEN or a Custom PAT if pushing to other repos
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
