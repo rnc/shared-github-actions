@@ -68,7 +68,6 @@ jobs:
 
 A Github repository example using those workflows can be found
 (here)[https://github.com/project-ncl/environment-driver/tree/main/.github/workflows]
->>>>>>> 47ec4fb (Update README.md with description)
 
 # Misc
 
@@ -78,3 +77,28 @@ A sample dependabot file in `.github/dependabot.yml` is available that is both u
 
 ## GitHub Releases
 A sample `.github/release.yml` configuration file from the [GitHub documentation](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes#configuring-automatically-generated-release-notes) has been added that may be copied to other ProjectNCL repositories.
+
+## Github Action validations
+We use (zizmor)[https://docs.zizmor.sh/] and
+[actionlint](https://github.com/rhysd/actionlint) to validate that our Github
+Actions are secure.
+
+One of the requirements is to explicitly define a permissions key to specify
+the level of access that the injected `GITHUB_TOKEN` should have.
+
+For workflows that do not require to `git push` any changes, we set an empty
+permissions field:
+```
+permissions: {}
+```
+
+and for those that do:
+```
+permissions:
+  contents: write
+```
+For example, `maven-release.yml` requires to `git push` changes back to the
+repository and needs those permissions.
+
+Note that the final workflow should also specify the same permissions as the
+shared workflow being used.
