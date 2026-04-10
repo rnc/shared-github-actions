@@ -27,6 +27,12 @@ on:
         required: false
         type: boolean
         default: false
+      maven_version:
+        description: 'The Maven version to use. Defaults to version of the runner image'
+        required: false
+        type: string
+        # Can't have dynamic default of the current version of Maven in the runner so hard-code it.
+        default: '3.9.14'
 
 # cancel in-progress runs of the same workflow
 # to avoid unnecessary runs when multiple commits pushed
@@ -51,6 +57,11 @@ jobs:
         java-version: '${{ inputs.java_version }}'
         distribution: 'temurin'
         cache: maven
+
+    - name: Set up Maven '${{ inputs.maven_version }}'
+      uses: stCarolas/setup-maven@12eb41b233df95d49b0c11fc1b5bc8312e5d4ce0 # v5.1
+      with:
+        maven-version: '${{ inputs.maven_version }}'
 
     - name: Build Command invocation
       run: bash -c "${INPUTS_BUILD_COMMAND}"
