@@ -72,7 +72,7 @@ jobs:
         run: mvn -B -V clean install -DskipTests
 
       - name: Run Mend CLI scan
-        uses: ./.github/actions/mend
+        uses: project-ncl/shared-github-actions/.github/actions/mend@f38e222f8efca7a82dcdae5fbb6f780eadb65b29
         with:
           PROJECT_NAME: "${{ github.event.repository.name }}_${{ github.ref_name }}"
           SCA: ${{ inputs.SCA }}
