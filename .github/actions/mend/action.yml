@@ -1,0 +1,72 @@
+name: "Mend CLI Scan"
+description: "Downloads the Mend CLI, and runs SCA and SAST scans."
+
+inputs:
+  PROJECT_NAME:
+    description: "The project name in Mend"
+    required: true
+  SCA:
+    description: "Run SCA scan"
+    required: true
+  SCA_REACHABILITY:
+    description: "Run SCA Reachability scan"
+    required: false
+    default: "false"
+  SAST:
+    description: "Run SAST scan"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download and install Mend CLI
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo curl -fSL https://downloads.mend.io/cli/linux_amd64/mend -o mend
+        curl -fSL https://downloads.mend.io/cli/linux_amd64/mend.sha256 -o mend.sha256
+        echo "$(awk '{print $1}' mend.sha256)  mend" | sha256sum -c -
+        sudo mv mend /usr/local/bin/mend
+        sudo chmod +x /usr/local/bin/mend
+
+    - name: Run Mend SCA scan
+      if: ${{ !cancelled() && inputs.SCA == 'true' }}
+      shell: bash
+      env:
+        SCA_REACHABILITY: ${{ inputs.SCA_REACHABILITY }}
+        PROJECT_NAME: ${{ inputs.PROJECT_NAME }}
+      run: |
+        REACHABILITY_SCAN=$([[ "$SCA_REACHABILITY" == "true" ]] && echo "-r" || echo "")
+        MEND_SCOPE="${MEND_ORGNAME}//${MEND_PRODUCTNAME}//${PROJECT_NAME}"
+        mend dep -u $REACHABILITY_SCAN --fail-policy --export-results sca-results.txt --scope "$MEND_SCOPE" || SCAN_EXIT=$?
+        SCAN_EXIT=${SCAN_EXIT:-0}
+        mkdir -p ~/.mend/logs
+        [ -f sca-results.txt ] && cp sca-results.txt ~/.mend/logs
+        exit $SCAN_EXIT
+
+    - name: Run Mend SAST scan
+      if: ${{ !cancelled() && inputs.SAST == 'true' }}
+      shell: bash
+      env:
+        PROJECT_NAME: ${{ inputs.PROJECT_NAME }}
+      run: |
+        MEND_SCOPE="${MEND_ORGNAME}//${MEND_PRODUCTNAME}//${PROJECT_NAME}"
+        mend code -r --formats sarif --filename sast-results --non-interactive --scope "$MEND_SCOPE" || SCAN_EXIT=$?
+        SCAN_EXIT=${SCAN_EXIT:-0}
+        mkdir -p ~/.mend/logs
+        [ -f sast-results.sarif ] && cp sast-results.sarif ~/.mend/logs
+        exit $SCAN_EXIT
+
+    - name: Publish Mend folder
+      if: ${{ !cancelled() && (inputs.SCA == 'true' || inputs.SAST == 'true') }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: "mend-cli-logs-sha-${{ github.sha }}-run-${{ github.run_id }}"
+        path: ~/.mend/logs
+        retention-days: 5
+
+    - name: Upload Mend SAST results to GitHub Security
+      if: ${{ !cancelled() && inputs.SAST == 'true' }}
+      uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225
+      with:
+        sarif_file: ~/.mend/logs/sast-results.sarif

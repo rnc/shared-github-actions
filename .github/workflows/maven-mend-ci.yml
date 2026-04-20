@@ -1,0 +1,80 @@
+name: Mend CLI scan for Maven
+
+on:
+  workflow_call:
+    inputs:
+      java_version:
+        description: "The Java version to use to compile. Default: 21"
+        required: false
+        type: string
+        default: "21"
+      maven_version:
+        description: "The Maven version to use. Defaults to version of the runner image"
+        required: false
+        type: string
+        # Can't have dynamic default of the current version of Maven in the runner so hard-code it.
+        default: "3.9.14"
+      SCA:
+        required: true
+        type: boolean
+      SCA_REACHABILITY:
+        required: false
+        type: boolean
+        default: false
+      SAST:
+        required: true
+        type: boolean
+    secrets:
+      MEND_URL:
+        required: true
+      MEND_USER_KEY:
+        required: true
+      MEND_EMAIL:
+        required: true
+      MEND_ORGNAME:
+        required: true
+      MEND_PRODUCTNAME:
+        required: true
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+
+    env:
+      MEND_URL: ${{ secrets.MEND_URL }}
+      MEND_USER_KEY: ${{ secrets.MEND_USER_KEY }}
+      MEND_EMAIL: ${{ secrets.MEND_EMAIL }}
+      MEND_ORGNAME: ${{ secrets.MEND_ORGNAME }}
+      MEND_PRODUCTNAME: ${{ secrets.MEND_PRODUCTNAME }}
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK '${{ inputs.java_version }}'
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: "${{ inputs.java_version }}"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Set up Maven '${{ inputs.maven_version }}'
+        uses: stCarolas/setup-maven@12eb41b233df95d49b0c11fc1b5bc8312e5d4ce0 # v5.1
+        with:
+          maven-version: "${{ inputs.maven_version }}"
+
+      - name: Build with Maven
+        run: mvn -B -V clean install -DskipTests
+
+      - name: Run Mend CLI scan
+        uses: ./.github/actions/mend
+        with:
+          PROJECT_NAME: "${{ github.event.repository.name }}_${{ github.ref_name }}"
+          SCA: ${{ inputs.SCA }}
+          SCA_REACHABILITY: ${{ inputs.SCA_REACHABILITY }}
+          SAST: ${{ inputs.SAST }}
