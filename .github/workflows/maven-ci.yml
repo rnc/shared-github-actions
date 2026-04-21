@@ -13,26 +13,26 @@ on:
     # Map the inputs that the caller needs to provide
     inputs:
       java_version:
-        description: 'The Java version to use to compile. Default: 21'
+        description: "The Java version to use to compile. Default: 21"
         required: false
         type: string
-        default: '21' # Java 21 is the default
+        default: "21" # Java 21 is the default
       build_command:
-        description: 'The build command to use. Default: mvn'
+        description: "The build command to use. Default: mvn"
         required: false
         type: string
-        default: 'mvn -B -V clean install'
+        default: "mvn -B -V clean install"
       fetch_all_commits:
-        description: 'Whether to fetch all commits. Default: false'
+        description: "Whether to fetch all commits. Default: false"
         required: false
         type: boolean
         default: false
       maven_version:
-        description: 'The Maven version to use. Defaults to version of the runner image'
+        description: "The Maven version to use. Defaults to version of the runner image"
         required: false
         type: string
         # Can't have dynamic default of the current version of Maven in the runner so hard-code it.
-        default: '3.9.14'
+        default: "3.9.14"
 
 # cancel in-progress runs of the same workflow
 # to avoid unnecessary runs when multiple commits pushed
@@ -46,30 +46,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      with:
-        fetch-depth: ${{ inputs.fetch_all_commits == true && '0' || '1' }}
-        persist-credentials: false
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: ${{ inputs.fetch_all_commits == true && '0' || '1' }}
+          persist-credentials: false
 
-    - name: Set up JDK '${{ inputs.java_version }}'
-      uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-      with:
-        java-version: '${{ inputs.java_version }}'
-        distribution: 'temurin'
-        cache: maven
+      - uses: project-ncl/shared-github-actions/.github/actions/maven-build@7d023a1181375615eb31beb29b49ae155ee948e0 # main
+        with:
+          java_version: ${{ inputs.java_version }}
+          build_command: ${{ inputs.build_command }}
+          maven_version: ${{ inputs.maven_version }}
 
-    - name: Set up Maven '${{ inputs.maven_version }}'
-      uses: stCarolas/setup-maven@12eb41b233df95d49b0c11fc1b5bc8312e5d4ce0 # v5.1
-      with:
-        maven-version: '${{ inputs.maven_version }}'
-
-    - name: Build Command invocation
-      run: bash -c "${INPUTS_BUILD_COMMAND}"
-      env:
-        INPUTS_BUILD_COMMAND: ${{ inputs.build_command }}
-
-    - name: Check for wrong code formatting
-      run: |
+      - name: Check for wrong code formatting
+        run: |
           if [[ -n $(git status --porcelain) ]]; then
               echo "Code formatting errors"
               echo "----------------------"

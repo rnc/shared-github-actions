@@ -12,7 +12,6 @@ on:
         description: "The Maven version to use. Defaults to version of the runner image"
         required: false
         type: string
-        # Can't have dynamic default of the current version of Maven in the runner so hard-code it.
         default: "3.9.14"
       SCA:
         required: true
@@ -24,6 +23,22 @@ on:
       SAST:
         required: true
         type: boolean
+      mode:
+        description: "'fresh' (checkout + build + scan) or 'deferred' (consume artifact + scan)"
+        required: false
+        type: string
+        default: "fresh"
+      triggering_run_id:
+        description: "workflow_run id to pull artifacts from (required for mode='deferred')"
+        required: false
+        type: string
+        default: ""
+      pr_feedback:
+        description: "PR check and comment feedback (deferred mode only)"
+        required: false
+        type: boolean
+        default: false
+
     secrets:
       MEND_URL:
         required: true
@@ -49,32 +64,201 @@ jobs:
 
     permissions:
       contents: read
+      actions: read
+      checks: write
+      pull-requests: write
       security-events: write
 
     steps:
+      # Fresh mode: checkout + build
+
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: inputs.mode == 'fresh'
         with:
           persist-credentials: false
 
-      - name: Set up JDK '${{ inputs.java_version }}'
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+      - uses: project-ncl/shared-github-actions/.github/actions/maven-build@7d023a1181375615eb31beb29b49ae155ee948e0 # main
+        if: inputs.mode == 'fresh'
         with:
-          java-version: "${{ inputs.java_version }}"
-          distribution: "temurin"
-          cache: maven
+          java_version: ${{ inputs.java_version }}
+          build_command: "mvn -B -V clean install -DskipTests"
+          maven_version: ${{ inputs.maven_version }}
 
-      - name: Set up Maven '${{ inputs.maven_version }}'
-        uses: stCarolas/setup-maven@12eb41b233df95d49b0c11fc1b5bc8312e5d4ce0 # v5.1
+      # Deferred mode: fetch PR metadata and build artifact
+
+      - name: Download PR metadata
+        if: inputs.mode == 'deferred'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          maven-version: "${{ inputs.maven_version }}"
+          name: pr-metadata
+          path: pr-metadata
+          run-id: ${{ inputs.triggering_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build with Maven
-        run: mvn -B -V clean install -DskipTests
+      - name: Read PR metadata
+        if: inputs.mode == 'deferred'
+        id: metadata
+        run: |
+          echo "pr_number=$(cat pr-metadata/pr-number)" >> "$GITHUB_OUTPUT"
+          echo "pr_sha=$(cat pr-metadata/pr-sha)" >> "$GITHUB_OUTPUT"
+
+      - name: Download PR build artifact
+        if: inputs.mode == 'deferred'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pr-build
+          path: .
+          run-id: ${{ inputs.triggering_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Deferred mode: create in-progress check-run
+
+      - name: Create in-progress check-run
+        if: inputs.mode == 'deferred' && inputs.pr_feedback
+        id: check
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # 9.0.0
+        env:
+          HEAD_SHA: ${{ steps.metadata.outputs.pr_sha }}
+        with:
+          script: |
+            const { data: check } = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Mend CLI scan',
+              head_sha: process.env.HEAD_SHA,
+              status: 'in_progress',
+              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+            return check.id;
+
+      # Common: run Mend scan
 
       - name: Run Mend CLI scan
-        uses: project-ncl/shared-github-actions/.github/actions/mend@f38e222f8efca7a82dcdae5fbb6f780eadb65b29
+        id: mend
+        uses: project-ncl/shared-github-actions/.github/actions/mend@7d023a1181375615eb31beb29b49ae155ee948e0 # main
         with:
-          PROJECT_NAME: "${{ github.event.repository.name }}_${{ github.ref_name }}"
+          PROJECT_NAME: >-
+            ${{ inputs.mode == 'deferred'
+                && format('{0}_pr-{1}', github.event.repository.name, steps.metadata.outputs.pr_number)
+                || format('{0}_{1}', github.event.repository.name, github.ref_name) }}
           SCA: ${{ inputs.SCA }}
           SCA_REACHABILITY: ${{ inputs.SCA_REACHABILITY }}
           SAST: ${{ inputs.SAST }}
+          source_ref: ${{ inputs.mode == 'deferred' && format('refs/pull/{0}/head', steps.metadata.outputs.pr_number) || '' }}
+          source_sha: ${{ inputs.mode == 'deferred' && steps.metadata.outputs.pr_sha || '' }}
+
+      # Deferred mode: update check-run + PR comment with results
+
+      - name: Build result summary
+        id: summary
+        if: ${{ !cancelled() && inputs.mode == 'deferred' && inputs.pr_feedback }}
+        env:
+          MEND_OUTCOME: ${{ steps.mend.outcome }}
+        run: |
+          STATUS="✅ passed"
+          [ "$MEND_OUTCOME" != "success" ] && STATUS="❌ failed"
+
+          SCA_LOG="$HOME/.mend/logs/sca-results.txt"
+          SAST_LOG="$HOME/.mend/logs/sast-results.sarif"
+
+          {
+            echo "summary<<SUMMARY_EOF"
+            echo "## Mend Scan Results"
+            echo ""
+            echo "**Status:** $STATUS"
+            echo ""
+
+            if [ -f "$SCA_LOG" ]; then
+              echo "<details><summary>SCA scan output</summary>"
+              echo ""
+              echo '```'
+              tail -c 6000 "$SCA_LOG"
+              echo '```'
+              echo ""
+              echo "</details>"
+              echo ""
+            fi
+
+            if [ -f "$SAST_LOG" ]; then
+              # SARIF is JSON — extract just the rule violations for readability
+              echo "<details><summary>SAST scan output</summary>"
+              echo ""
+              echo '```'
+              SAST_OUTPUT=$(jq -r '
+                .runs[].results[]? |
+                "\(.level // "warning"): \(.message.text // "(no message)") (\((.locations[0].physicalLocation.artifactLocation.uri) // "no location"):\((.locations[0].physicalLocation.region.startLine) // "?"))"
+              ' "$SAST_LOG" 2>/dev/null | head -50)
+              if [ -z "$SAST_OUTPUT" ]; then
+                echo "(no findings)"
+              else
+                echo "$SAST_OUTPUT"
+              fi
+              echo '```'
+              echo ""
+              echo "</details>"
+              echo ""
+            fi
+
+            echo "[Full logs and artifacts]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+            echo "SUMMARY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "overall=$MEND_OUTCOME" >> "$GITHUB_OUTPUT"
+
+      - name: Update check-run
+        if: ${{ !cancelled() && inputs.mode == 'deferred' && inputs.pr_feedback }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # 9.0.0
+        env:
+          CHECK_ID: ${{ steps.check.outputs.result }}
+          SUMMARY_OVERALL: ${{ steps.summary.outputs.overall }}
+          SUMMARY_FULL: ${{ steps.summary.outputs.summary }}
+        with:
+          script: |
+            const conclusion = process.env.SUMMARY_OVERALL === 'success' ? 'success' : 'failure';
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: parseInt(process.env.CHECK_ID, 10),
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: `Mend CLI scan ${conclusion}`,
+                summary: process.env.SUMMARY_FULL,
+              },
+            });
+
+      - name: Post or update PR comment
+        if: ${{ !cancelled() && inputs.mode == 'deferred' && inputs.pr_feedback }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # 9.0.0
+        env:
+          PR_NUMBER: ${{ steps.metadata.outputs.pr_number }}
+          SUMMARY_FULL: ${{ steps.summary.outputs.summary }}
+        with:
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const marker = '<!-- mend-scan-comment -->';
+            const body = `${marker}\n${process.env.SUMMARY_FULL}`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }

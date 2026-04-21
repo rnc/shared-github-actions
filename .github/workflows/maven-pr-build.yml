@@ -1,0 +1,58 @@
+# Build a Java Maven project, and upload artifacts for use in a deferred scanning workflow
+name: Java Maven build [PR]
+
+on:
+  workflow_call:
+    inputs:
+      java_version:
+        description: "The Java version to use to compile. Default: 21"
+        required: false
+        type: string
+        default: "21"
+      maven_version:
+        description: "The Maven version to use. Defaults to version of the runner image"
+        required: false
+        type: string
+        default: "3.9.14"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: project-ncl/shared-github-actions/.github/actions/maven-build@7d023a1181375615eb31beb29b49ae155ee948e0 # main
+        with:
+          java_version: ${{ inputs.java_version }}
+          build_command: "mvn -B -V clean install -DskipTests"
+          maven_version: ${{ inputs.maven_version }}
+
+      - name: Save PR metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p pr-metadata
+          echo "$PR_NUMBER" > pr-metadata/pr-number
+          echo "$PR_SHA" > pr-metadata/pr-sha
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr-build
+          path: |
+            .
+            !.git
+            !pr-metadata
+          retention-days: 1
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr-metadata
+          path: pr-metadata
+          retention-days: 1
