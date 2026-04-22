@@ -38,7 +38,7 @@ on:
 # to avoid unnecessary runs when multiple commits pushed
 # in a short period of time
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.java_version }}-${{ inputs.maven_version }}
   cancel-in-progress: true
 
 jobs:
