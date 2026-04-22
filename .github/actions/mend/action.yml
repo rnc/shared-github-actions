@@ -46,7 +46,7 @@ runs:
       run: |
         REACHABILITY_SCAN=$([[ "$SCA_REACHABILITY" == "true" ]] && echo "-r" || echo "")
         MEND_SCOPE="${MEND_ORGNAME}//${MEND_PRODUCTNAME}//${PROJECT_NAME}"
-        mend dep -u $REACHABILITY_SCAN --fail-policy --export-results sca-results.txt --scope "$MEND_SCOPE" || SCAN_EXIT=$?
+        mend dep -u $REACHABILITY_SCAN --fail-policy --export-results sca-results.txt --non-interactive --scope "$MEND_SCOPE" || SCAN_EXIT=$?
         SCAN_EXIT=${SCAN_EXIT:-0}
         mkdir -p ~/.mend/logs
         [ -f sca-results.txt ] && cp sca-results.txt ~/.mend/logs
