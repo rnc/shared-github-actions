@@ -107,3 +107,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Create the GH Release
       run: gh release create --generate-notes
+      env:
+        # Use the standard GITHUB_TOKEN or a Custom PAT if pushing to other repos
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
