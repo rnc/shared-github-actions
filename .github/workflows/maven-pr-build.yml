@@ -27,7 +27,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: project-ncl/shared-github-actions/.github/actions/maven-build@7d023a1181375615eb31beb29b49ae155ee948e0 # main
+      - uses: project-ncl/shared-github-actions/.github/actions/maven-build@94481b379fd7ddda5fe363d1c1d5fc311930c607 # main
         with:
           java_version: ${{ inputs.java_version }}
           build_command: "mvn -B -V clean install -DskipTests"

@@ -77,7 +77,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: project-ncl/shared-github-actions/.github/actions/maven-build@7d023a1181375615eb31beb29b49ae155ee948e0 # main
+      - uses: project-ncl/shared-github-actions/.github/actions/maven-build@94481b379fd7ddda5fe363d1c1d5fc311930c607 # main
         if: inputs.mode == 'fresh'
         with:
           java_version: ${{ inputs.java_version }}
@@ -135,12 +135,13 @@ jobs:
 
       - name: Run Mend CLI scan
         id: mend
-        uses: project-ncl/shared-github-actions/.github/actions/mend@7d023a1181375615eb31beb29b49ae155ee948e0 # main
+        uses: project-ncl/shared-github-actions/.github/actions/mend@94481b379fd7ddda5fe363d1c1d5fc311930c607 # main
         with:
-          PROJECT_NAME: >-
+          PROJECT_NAME: ${{ github.event.repository.name }}
+          TAGS: >-
             ${{ inputs.mode == 'deferred'
-                && format('{0}_pr-{1}', github.event.repository.name, steps.metadata.outputs.pr_number)
-                || format('{0}_{1}', github.event.repository.name, github.ref_name) }}
+                && format('trigger:pr, pr:{0}, run:{1}', steps.metadata.outputs.pr_number, github.run_id)
+                || format('trigger:{0}, run:{1}', github.event_name, github.run_id) }}
           SCA: ${{ inputs.SCA }}
           SCA_REACHABILITY: ${{ inputs.SCA_REACHABILITY }}
           SAST: ${{ inputs.SAST }}
