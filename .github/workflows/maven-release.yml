@@ -107,7 +107,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Create the GH Release
       run: |
-        LATEST_TAG=$(grep 'scm.tag=' release.properties | cut -d'=' -f2)
+        LATEST_TAG=$(git describe --tags --abbrev=0)
         gh release create --generate-notes "${LATEST_TAG}"
       env:
         # Use the standard GITHUB_TOKEN or a Custom PAT if pushing to other repos
