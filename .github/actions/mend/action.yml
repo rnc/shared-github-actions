@@ -70,13 +70,13 @@ runs:
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: "mend-cli-logs-sha-${{ inputs.source_sha || github.sha }}-run-${{ github.run_id }}"
-        path: ~/.mend/logs
+        path: /home/runner/.mend/logs
         retention-days: 5
 
     - name: Upload Mend SAST results to GitHub Security
-      if: ${{ !cancelled() && inputs.SAST == 'true' }}
+      if: ${{ !cancelled() && inputs.SAST == 'true' && hashFiles('/home/runner/.mend/logs/sast-results.sarif') != '' }}
       uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225
       with:
-        sarif_file: ~/.mend/logs/sast-results.sarif
+        sarif_file: /home/runner/.mend/logs/sast-results.sarif # v4.35.2
         ref: ${{ inputs.source_ref }}
         sha: ${{ inputs.source_sha }}
