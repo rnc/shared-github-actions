@@ -10,11 +10,33 @@ in other repositories using the `workflow_call` mechanism.
 ## Maven CI (`maven-ci.yml`)
 Standard Continuous Integration workflow for Maven projects that we use to test
 PRs. For some of the workflows, we can also further customize it by specifying
-the Java version etc.
+the Java version etc. It is possible to use this within a matrix job.
 
-- **Tasks**: Checkout code, set up Java (default: 21), run build command (`mvn
+- **Tasks**: Checkout code, set up Java (default: 21), set up Maven (default: 3.9.15), run build command (`mvn
   clean install`), and check for code formatting errors.
 
+<details>
+<summary>Here is an example of using this in a matrix job</summary>
+
+```yaml
+    strategy:
+      fail-fast: false
+      matrix:
+        maven-version: [3.3.9, 3.5.4, 3.6.3, 3.8.7, 3.9.0, 3.9.8]
+        java-version: ['11']
+        # Use include to add a specific Maven/JDK combination
+        include:
+          - maven-version: 3.9.11
+            java-version: '17'
+          - maven-version: 3.9.15
+            java-version: '17'
+    uses: project-ncl/shared-github-actions/.github/workflows/maven-ci.yml@ef31e53140344cac0421b7211cc0940182409106 # v0.0.16
+    with:
+      build_command: "mvn -B -V clean install -Prun-its"
+      java_version: ${{ matrix.java-version }}
+      maven_version: ${{ matrix.maven-version }}
+```
+</details>
 
 ## Maven Release (`maven-release.yml`)
 Workflow for performing a release to Maven Central (Sonatype).
