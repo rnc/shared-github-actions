@@ -13,7 +13,7 @@ PRs. For some of the workflows, we can also further customize it by specifying
 the Java version etc. It is possible to use this within a matrix job.
 
 - **Tasks**: Checkout code, set up Java (default: 21), set up Maven (default: 3.9.15), run build command (`mvn
-  clean install`), and check for code formatting errors.
+  clean install`), check for code formatting errors, and optionally push build artifact (which is used by Maven Mend workflow).
 
 <details>
 <summary>Here is an example of using this in a matrix job</summary>
@@ -35,6 +35,105 @@ the Java version etc. It is possible to use this within a matrix job.
       build_command: "mvn -B -V clean install -Prun-its"
       java_version: ${{ matrix.java-version }}
       maven_version: ${{ matrix.maven-version }}
+```
+</details>
+
+## Maven Mend
+Workflow to run Mend analysis, both SCA (Software Composition Analysiss) and SAST (Static Application Security Testing), on Maven projects. Because it has to have access to secrets in the organization or repository, it has two modes: `fresh` and `deferred`.
+
+Fresh mode checkouts the code, builds the Maven project, and runs the Mend analysis. It is designed for cronjob schedule, and push to main workflow runs - because for those, the secrets are accessible.
+
+Workflows run in the context of the PR from a fork do not have access to the secrets. For that use-case, deferred mode exists. It is meant to be executed `on: workflow_run` depending on Maven CI workflow with `upload_artifact` set to `true` - this way, the Maven Mend workflow is run in the context of the base repository. It downloads saved PR metadata and build artifact, sets check-run on the PR, runs the Mend analysis, and posts PR comment.
+
+<details>
+<summary>Example of 'fresh' mode usage</summary>
+
+```yaml
+name: Mend CLI scan for Maven
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 22 * * 0"
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+  pull-requests: write
+  security-events: write
+
+jobs:
+  call-maven-mend-ci:
+    uses: project-ncl/shared-github-actions/.github/workflows/maven-mend-ci.yml@<sha>
+    with:
+      SCA: true
+      SAST: true
+    secrets:
+      MEND_URL: ${{ secrets.MEND_URL }}
+      MEND_USER_KEY: ${{ secrets.MEND_USER_KEY }}
+      MEND_EMAIL: ${{ secrets.MEND_EMAIL }}
+      MEND_ORGNAME: ${{ secrets.MEND_ORGNAME }}
+      MEND_PRODUCTNAME: ${{ secrets.MEND_PRODUCTNAME }}
+```
+</details>
+
+<details>
+<summary>Example of 'deferred' mode usage</summary>
+
+```yaml
+name: Java CI with Maven
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: project-ncl/shared-github-actions/.github/workflows/maven-ci.yml@<sha>
+    with:
+      upload_artifacts: true
+```
+
+```yaml
+name: Mend CLI scan for Maven PR
+
+on:
+  workflow_run:
+    workflows: ["Java CI with Maven"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+  pull-requests: write
+  security-events: write
+
+concurrency:
+  group: mend-scan-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
+    uses: project-ncl/shared-github-actions/.github/workflows/maven-mend-ci.yml@<sha>
+    with:
+      SCA: true
+      SAST: true
+      mode: deferred
+      triggering_run_id: ${{ github.event.workflow_run.id }}
+      pr_feedback: true
+    secrets:
+      MEND_URL: ${{ secrets.MEND_URL }}
+      MEND_USER_KEY: ${{ secrets.MEND_USER_KEY }}
+      MEND_EMAIL: ${{ secrets.MEND_EMAIL }}
+      MEND_ORGNAME: ${{ secrets.MEND_ORGNAME }}
+      MEND_PRODUCTNAME: ${{ secrets.MEND_PRODUCTNAME }}
 ```
 </details>
 
@@ -110,6 +209,18 @@ jobs:
 
 A Github repository example using those workflows can be found
 (here)[https://github.com/project-ncl/environment-driver/tree/main/.github/workflows]
+
+# Available Actions
+
+## Maven Build (`maven-build/action.yml`)
+
+Sets up Java, sets up Maven, and runs build command.
+
+## Mend (`mend/action.yml`)
+
+Downloads and installs Mend CLI, runs Mend SCA scan (if enabled), and runs Mend SAST scan (if enabled). Publishes artifacts of results of SCA/SAST scans.
+
+Also has a `TAGS` property to associate Mend scan run with some data (e.g. branch name, PR number, etc.) - which is then visible in the Mend UI.
 
 # Misc
 
