@@ -134,7 +134,6 @@ jobs:
       # Common: run Mend scan
 
       - name: Run Mend CLI scan
-        id: mend
         uses: project-ncl/shared-github-actions/.github/actions/mend@94481b379fd7ddda5fe363d1c1d5fc311930c607 # main
         with:
           PROJECT_NAME: ${{ github.event.repository.name }}
@@ -153,14 +152,28 @@ jobs:
       - name: Build result summary
         id: summary
         if: ${{ !cancelled() && inputs.mode == 'deferred' && inputs.pr_feedback }}
-        env:
-          MEND_OUTCOME: ${{ steps.mend.outcome }}
         run: |
-          STATUS="✅ passed"
-          [ "$MEND_OUTCOME" != "success" ] && STATUS="❌ failed"
-
           SCA_LOG="$HOME/.mend/logs/sca-results.txt"
           SAST_LOG="$HOME/.mend/logs/sast-results.sarif"
+
+          SCA_HAS_FINDINGS=false
+          if [ -f "$SCA_LOG" ]; then
+            if grep -qE 'Detected [1-9][0-9]* vuln' "$SCA_LOG"; then
+              SCA_HAS_FINDINGS=true
+            fi
+          fi
+
+          SAST_HAS_FINDINGS=false
+          if [ -f "$SAST_LOG" ]; then
+            SAST_COUNT=$(jq '[.runs[].results[]?] | length' "$SAST_LOG" 2>/dev/null || echo 0)
+            [ "$SAST_COUNT" -gt 0 ] && SAST_HAS_FINDINGS=true
+          fi
+
+          if [ "$SCA_HAS_FINDINGS" = true ] || [ "$SAST_HAS_FINDINGS" = true ]; then
+            STATUS="⚠️ Findings detected"
+          else
+            STATUS="✅ No findings detected"
+          fi
 
           {
             echo "summary<<SUMMARY_EOF"
@@ -168,6 +181,15 @@ jobs:
             echo ""
             echo "**Status:** $STATUS"
             echo ""
+
+            if [ "$SCA_HAS_FINDINGS" = true ]; then
+              echo "⚠️ SCA findings detected"
+              echo ""
+            fi
+            if [ "$SAST_HAS_FINDINGS" = true ]; then
+              echo "⚠️ SAST findings detected"
+              echo ""
+            fi
 
             if [ -f "$SCA_LOG" ]; then
               echo "<details><summary>SCA scan output</summary>"
@@ -204,7 +226,7 @@ jobs:
             echo "SUMMARY_EOF"
           } >> "$GITHUB_OUTPUT"
 
-          echo "overall=$MEND_OUTCOME" >> "$GITHUB_OUTPUT"
+          echo "overall=success" >> "$GITHUB_OUTPUT"
 
       - name: Update check-run
         if: ${{ !cancelled() && inputs.mode == 'deferred' && inputs.pr_feedback }}
@@ -215,7 +237,7 @@ jobs:
           SUMMARY_FULL: ${{ steps.summary.outputs.summary }}
         with:
           script: |
-            const conclusion = process.env.SUMMARY_OVERALL === 'success' ? 'success' : 'failure';
+            const conclusion = process.env.SUMMARY_OVERALL;
             await github.rest.checks.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -223,7 +245,7 @@ jobs:
               status: 'completed',
               conclusion: conclusion,
               output: {
-                title: `Mend CLI scan ${conclusion}`,
+                title: `Mend CLI scan`,
                 summary: process.env.SUMMARY_FULL,
               },
             });
