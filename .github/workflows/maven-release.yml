@@ -25,7 +25,7 @@ on:
         #              to use git@github.com :: we don't have ssh setup here
         #              and instead uses https://github.com + github token.
         #              We'll manually push it later
-        default: 'mvn -B -V release:prepare release:perform -DlocalCheckout=true -DpushChanges=false'
+        default: 'mvn -B -V release:prepare release:perform -DlocalCheckout=true -DpushChanges=false -DsignTag=false'
 
       fetch_all_commits:
         description: 'Whether to fetch all commits. Default: false'
