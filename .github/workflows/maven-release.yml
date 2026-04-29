@@ -25,7 +25,7 @@ on:
         #              to use git@github.com :: we don't have ssh setup here
         #              and instead uses https://github.com + github token.
         #              We'll manually push it later
-        default: 'mvn -B -V release:prepare release:perform -DlocalCheckout=true -DpushChanges=false -DsignTag=false'
+        default: 'mvn -B -V release:prepare release:perform -DlocalCheckout=true -DpushChanges=false'
 
       fetch_all_commits:
         description: 'Whether to fetch all commits. Default: false'
@@ -33,6 +33,16 @@ on:
         type: boolean
         default: false
 
+      jboss_parent_override:
+        description: "Overrides for Jboss-Parent Central releasing"
+        required: false
+        type: string
+        # central.serverId : We use 'central-publisher' not 'central'
+        # central.autoPublsh: Set to false (the plugin default)
+        # releaseProfile: Use the central profile not jboss-release
+        # signTag: Reset back to maven-release-plugin default
+        # tagNameFormat: Reset to maven-release-plugin default
+        default: '-Dcentral.serverId=central-publisher -Dcentral.autoPublish=false -DreleaseProfile=central-release -DsignTag=false -DtagNameFormat=@{project.artifactId}-@{project.version}'
     secrets:
       SONATYPE_USERNAME:
         required: true
@@ -44,7 +54,7 @@ on:
         required: true
 
 # cancel in-progress runs of the same workflow
-# to avoid unecessary runs when multiple commits pushed
+# to avoid unnecessary runs when multiple commits pushed
 # in a short period of time
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -93,7 +103,7 @@ jobs:
         MAVEN_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
         MAVEN_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
         MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        INPUTS_RELEASE_COMMAND: ${{ inputs.release_command }}
+        INPUTS_RELEASE_COMMAND: ${{ inputs.release_command }} ${{ inputs.jboss_parent_override }}
 
     - name: Push all the git commits and tags back to the repository
       run: |
