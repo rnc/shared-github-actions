@@ -107,8 +107,12 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Create the GH Release
       run: |
-        LATEST_TAG=$(git describe --tags --abbrev=0)
-        gh release create --generate-notes "${LATEST_TAG}"
+        # Fetch latest two tags sorted by creation date
+        TAGS=$(git tag --sort=-creatordate | head -n 2)
+        LATEST_TAG=$(echo "$TAGS" | sed -n '1p')
+        PREVIOUS_TAG=$(echo "$TAGS" | sed -n '2p')
+        echo "Creating release notes between ${LATEST_TAG} and ${PREVIOUS_TAG}"
+        gh release create --generate-notes --notes-start-tag "${PREVIOUS_TAG}" "${LATEST_TAG}"
       env:
         # Use the standard GITHUB_TOKEN or a Custom PAT if pushing to other repos
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
