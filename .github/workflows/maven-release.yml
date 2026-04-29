@@ -41,8 +41,7 @@ on:
         # central.autoPublsh: Set to false (the plugin default)
         # releaseProfile: Use the central profile not jboss-release
         # signTag: Reset back to maven-release-plugin default
-        # tagNameFormat: Reset to maven-release-plugin default
-        default: '-Dcentral.serverId=central-publisher -Dcentral.autoPublish=false -DreleaseProfile=central-release -DsignTag=false -DtagNameFormat=@{project.artifactId}-@{project.version}'
+        default: '-Dcentral.serverId=central-publisher -Dcentral.autoPublish=false -DreleaseProfile=central-release -DsignTag=false'
     secrets:
       SONATYPE_USERNAME:
         required: true

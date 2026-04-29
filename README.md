@@ -154,7 +154,9 @@ Workflow for performing a release to Maven Central (Sonatype). This can be manua
   * java_version (default: `21`)
   * release_command (default `mvn -B -V release:prepare release:perform -DlocalCheckout=true -DpushChanges=false`)
   * fetch_all_commits (default: `false`)
-  * jboss_parent_override: This is used to override variables from the jboss-parent (default `-Dcentral.serverId=central-publisher -Dcentral.autoPublish=false -DreleaseProfile=central-release -DsignTag=false -DtagNameFormat=@{project.artifactId}-@{project.version}`)
+  * jboss_parent_override: This is used to override variables from the jboss-parent (default `-Dcentral.serverId=central-publisher -Dcentral.autoPublish=false -DreleaseProfile=central-release -DsignTag=false`)
+
+Note that the `jboss-parent` overrides the release-plugin `tagNameFormat` to use `@{project.version}`. To revert to the default format add the following to the calling projects properties: `<tagNameFormat>@{project.artifactId}-@{project.version}</tagNameFormat>`
 
 ## Maven Snapshot (`maven-snapshot.yml`)
 Workflow for deploying snapshot versions to Maven Central.
