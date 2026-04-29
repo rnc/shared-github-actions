@@ -163,6 +163,13 @@ Workflow for deploying snapshot versions to Maven Central.
 
 - **Tasks**: Deploy our SNAPSHOT version of our project to Maven Central
   Optionally builds and pushes a Quarkus Jib image to Quay.io.
+- **Inputs**: The following inputs are available to be overridden
+  * project_name :  **Must** be set by te caller.
+  * java_version (default: `21`)
+  * snapshot_deploy_command (default `mvn -B -V deploy`)
+  * fetch_all_commits (default: `false`)
+  * quarkus_jib_image ( default: `false`)
+  * jboss_parent_override: This is used to override variables from the jboss-parent (default `-Dcentral.serverId=central-publisher -Dcentral.sonatype.url=https://central.sonatype.com/repository/maven-snapshots -Pcentral-release -Dgpg.skip`)
 
 
 ## Maven Set Version (`maven-set-version.yml`)

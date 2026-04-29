@@ -34,11 +34,11 @@ on:
         default: false
 
       jboss_parent_override:
-        description: "Overrides for Jboss-Parent Central releasing"
+        description: "Overrides for JBoss-Parent Central Profile"
         required: false
         type: string
         # central.serverId : We use 'central-publisher' not 'central'
-        # central.autoPublsh: Set to false (the plugin default)
+        # central.autoPublish: Set to false (the plugin default)
         # releaseProfile: Use the central profile not jboss-release
         # signTag: Reset back to maven-release-plugin default
         default: '-Dcentral.serverId=central-publisher -Dcentral.autoPublish=false -DreleaseProfile=central-release -DsignTag=false'
