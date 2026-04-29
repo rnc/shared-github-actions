@@ -12,8 +12,13 @@ Standard Continuous Integration workflow for Maven projects that we use to test
 PRs. For some of the workflows, we can also further customize it by specifying
 the Java version etc. It is possible to use this within a matrix job.
 
-- **Tasks**: Checkout code, set up Java (default: 21), set up Maven (default: 3.9.15), run build command (`mvn
-  clean install`), check for code formatting errors, and optionally push build artifact (which is used by Maven Mend workflow).
+- **Tasks**: Checkout code, set up Java, set up Maven, run build command, check for code formatting errors, and optionally push build artifact (which is used by Maven Mend workflow).
+- **Inputs**: The following inputs are available to be overridden
+  * java_version (default: `21`)
+  * build_command (default: `mvn -B -V clean install`)
+  * fetch_all_commits (default: `false`)
+  * maven_version (default: `3.9.15`)
+  * upload_artifacts (default: `false`)
 
 <details>
 <summary>Here is an example of using this in a matrix job</summary>
@@ -39,7 +44,7 @@ the Java version etc. It is possible to use this within a matrix job.
 </details>
 
 ## Maven Mend
-Workflow to run Mend analysis, both SCA (Software Composition Analysiss) and SAST (Static Application Security Testing), on Maven projects. Because it has to have access to secrets in the organization or repository, it has two modes: `fresh` and `deferred`.
+Workflow to run Mend analysis, both SCA (Software Composition Analysis) and SAST (Static Application Security Testing), on Maven projects. Because it has to have access to secrets in the organization or repository, it has two modes: `fresh` and `deferred`.
 
 Fresh mode checkouts the code, builds the Maven project, and runs the Mend analysis. It is designed for cronjob schedule, and push to main workflow runs - because for those, the secrets are accessible.
 
@@ -138,13 +143,20 @@ jobs:
 </details>
 
 ## Maven Release (`maven-release.yml`)
-Workflow for performing a release to Maven Central (Sonatype).
+Workflow for performing a release to Maven Central (Sonatype). This can be manually run by going to the GitHub Actions tab and selecting the workflow.
 
 - **Tasks**: Configures Git, sets up Java and GPG, performs `release:prepare`
   and `release:perform`, and pushes changes/tags back to the repository. The
   next version is set by bumping the patch version by 1 and putting the
   `-SNAPSHOT` suffix.
+- **Inputs**: The following inputs are available to be overridden
+  * ref_to_release (default: `''`)
+  * java_version (default: `21`)
+  * release_command (default `mvn -B -V release:prepare release:perform -DlocalCheckout=true -DpushChanges=false`)
+  * fetch_all_commits (default: `false`)
+  * jboss_parent_override: This is used to override variables from the jboss-parent (default `-Dcentral.serverId=central-publisher -Dcentral.autoPublish=false -DreleaseProfile=central-release -DsignTag=false`)
 
+Note that the `jboss-parent` overrides the release-plugin `tagNameFormat` to use `@{project.version}`. To revert to the default format add the following to the calling projects properties: `<tagNameFormat>@{project.artifactId}-@{project.version}</tagNameFormat>`
 
 ## Maven Snapshot (`maven-snapshot.yml`)
 Workflow for deploying snapshot versions to Maven Central.
@@ -154,10 +166,10 @@ Workflow for deploying snapshot versions to Maven Central.
 
 
 ## Maven Set Version (`maven-set-version.yml`)
-Workflow to update the version in a Maven `pom.xml`.
+Workflow to update the version in a Maven `pom.xml`. This can be manually run by going to the GitHub Actions tab and selecting the workflow.
 
 - **Tasks**: Updates the version using `versions:set` and commits/pushes the change.
- 
+
 This workflow should be manually called and an example of that may be seen [here](https://github.com/project-ncl/environment-driver/blob/main/.github/workflows/maven-set-version.yml). Its recommended that `on.workflow_dispatch` is used so the user can enter the appropriate values e.g.
 ```
 on:
@@ -207,7 +219,7 @@ jobs:
       java_version: '17'
 ```
 
-A Github repository example using those workflows can be found
+A GitHub repository example using those workflows can be found
 (here)[https://github.com/project-ncl/environment-driver/tree/main/.github/workflows]
 
 # Available Actions
@@ -231,9 +243,9 @@ A sample dependabot file in `.github/dependabot.yml` is available that is both u
 ## GitHub Releases
 A sample `.github/release.yml` configuration file from the [GitHub documentation](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes#configuring-automatically-generated-release-notes) has been added that may be copied to other ProjectNCL repositories.
 
-## Github Action validations
+## GitHub Action validations
 We use (zizmor)[https://docs.zizmor.sh/] and
-[actionlint](https://github.com/rhysd/actionlint) to validate that our Github
+[actionlint](https://github.com/rhysd/actionlint) to validate that our GitHub
 Actions are secure.
 
 One of the requirements is to explicitly define a permissions key to specify

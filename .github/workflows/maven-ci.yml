@@ -18,7 +18,7 @@ on:
         type: string
         default: "21" # Java 21 is the default
       build_command:
-        description: "The build command to use. Default: mvn"
+        description: "The build command to use. Default: mvn clean install"
         required: false
         type: string
         default: "mvn -B -V clean install"
@@ -28,7 +28,7 @@ on:
         type: boolean
         default: false
       maven_version:
-        description: "The Maven version to use. Defaults to version of the runner image"
+        description: "The Maven version to use. Default: 3.9.15"
         required: false
         type: string
         # Can't have dynamic default of the current version of Maven in the runner so hard-code it.
