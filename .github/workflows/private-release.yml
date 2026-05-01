@@ -1,0 +1,51 @@
+# This is not meant to be copied and is only for this repository.
+name: "0 Central Release Job" # Adding the 0 so that it's on top of the list of GitHub actions
+on:
+  workflow_dispatch: # Manual trigger so you don't release on every push
+    inputs:
+      ref_to_release:
+        description: '[Optional] Branch or commit to release. Default: Github default branch'
+        required: false
+        type: string
+        # default has to be a static string, no variables allowed
+        default: ''
+      tag_bump:
+        description: '[Optional] What version to bump the tag (patch/minor/major). Default: patch'
+        required: false
+        type: string
+        # default has to be a static string, no variables allowed
+        default: 'patch'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-job:
+    runs-on: ubuntu-latest
+
+    env:
+      # Logic: Use the user input if provided, otherwise fall back to the repo's default branch
+      FINAL_REF: ${{ github.event.inputs.ref_to_release || github.event.repository.default_branch }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: '${{ env.FINAL_REF }}'
+          persist-credentials: false
+      - id: compute_tag
+        uses: craig-day/compute-tag@f45e4c2d6cab8ef1a0eb512bc165f46e65f45e1d # v19
+        with:
+          version_type: ${{ github.event.inputs.tag_bump }}
+          github_token: ${{ github.token }}
+      - name: Create the GH Release
+        run: |
+          # Fetch latest two tags sorted by creation date
+          TAGS=$(git tag --sort=-creatordate | head -n 1)
+          LATEST_TAG=${{ steps.compute_tag.outputs.next_tag }}
+          PREVIOUS_TAG=$(echo "$TAGS" | sed -n '1p')
+          echo "Creating release notes between ${LATEST_TAG} and ${PREVIOUS_TAG}"
+          gh release create --generate-notes --notes-start-tag "${PREVIOUS_TAG}" "${LATEST_TAG}"
+        env:
+          # Use the standard GITHUB_TOKEN or a Custom PAT if pushing to other repos
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

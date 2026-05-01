@@ -43,7 +43,7 @@ the Java version etc. It is possible to use this within a matrix job.
 ```
 </details>
 
-## Maven Mend
+## Maven Mend (`maven-mend-ci.yml`)
 Workflow to run Mend analysis, both SCA (Software Composition Analysis) and SAST (Static Application Security Testing), on Maven projects. Because it has to have access to secrets in the organization or repository, it has two modes: `fresh` and `deferred`.
 
 Fresh mode checkouts the code, builds the Maven project, and runs the Mend analysis. It is designed for cronjob schedule, and push to main workflow runs - because for those, the secrets are accessible.
