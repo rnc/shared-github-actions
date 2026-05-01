@@ -37,11 +37,12 @@ on:
         description: "Overrides for JBoss-Parent Central Profile"
         required: false
         type: string
-        # central.serverId : We use 'central-publisher' not 'central'
-        # central.autoPublish: Set to false (the plugin default)
-        # releaseProfile: Use the central profile not jboss-release
+        # First two need to passed as arguments to the release plugin:
+        #   central.serverId : We use 'central-publisher' not 'central'
+        #   central.autoPublish: Set to false (the plugin default)
+        # releaseProfiles: Use the central profile not jboss-release
         # signTag: Reset back to maven-release-plugin default
-        default: '-Dcentral.serverId=central-publisher -Dcentral.autoPublish=false -DreleaseProfiles=central-release -DsignTag=false'
+        default: '"-Darguments=-Dcentral.serverId=central-publisher -Dcentral.autoPublish=false" -DreleaseProfiles=central-release -DsignTag=false'
     secrets:
       SONATYPE_USERNAME:
         required: true
