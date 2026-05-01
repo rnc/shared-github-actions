@@ -77,6 +77,7 @@ jobs:
         ref: '${{ env.FINAL_REF }}'
         fetch-depth: ${{ inputs.fetch_all_commits == true && '0' || '1' }}
         persist-credentials: false
+        fetch-tags: true
 
     - name: Configure Git User
       run: |
